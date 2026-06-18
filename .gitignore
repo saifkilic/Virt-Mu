@@ -1,0 +1,8 @@
+node_modules/
+server/node_modules/
+coverage/
+.env
+server/.env
+dist/
+Detail.md
+DESIGN_SYSTEM.md
