@@ -17,10 +17,13 @@ import { errorHandler } from './middlewares/error';
 const app: Application = express();
 
 app.use(helmet());
+app.use(compression());
 
+const productionOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
+  ...productionOrigins
 ];
 
 app.use(
@@ -48,14 +51,25 @@ app.use('/api', globalLimiter);
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
+app.use((req, res, next) => {
+  Object.defineProperty(req, 'query', {
+    value: { ...req.query },
+    writable: true,
+    configurable: true,
+    enumerable: true,
+  });
+  next();
+});
+
+app.use(mongoSanitize());
+app.use(hpp());
+
 app.use('/api/auth', authRouter);
 app.use('/api/museums', museumRouter);
 app.use('/api/rooms', roomRouter);
 app.use('/api/artifacts', artifactRouter);
 app.use('/api/comments', commentRouter);
 app.use('/api/favorites', favoriteRouter);
-
-app.use(compression());
 
 app.get('/api/health', (req: Request, res: Response) => {
   res.status(200).json({
@@ -66,8 +80,6 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
-app.use(mongoSanitize());
-app.use(hpp());
 app.use(errorHandler);
 
 export default app;

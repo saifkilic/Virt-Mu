@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-// Extend Express Request interface to include authenticated user payload
 export interface AuthRequest extends Request {
   user?: {
     id: string;
@@ -14,7 +13,6 @@ interface JwtPayload {
   role: 'user' | 'curator' | 'admin';
 }
 
-// Authenticate user check
 export const protect = async (
   req: AuthRequest,
   res: Response,
@@ -22,7 +20,6 @@ export const protect = async (
 ): Promise<void> => {
   let token: string | undefined;
 
-  // Read Authorization header
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
@@ -44,7 +41,6 @@ export const protect = async (
       process.env.JWT_SECRET || 'super_secret_virtual_museum_jwt_key_2026'
     ) as JwtPayload;
 
-    // Attach user payload to request object
     req.user = {
       id: decoded.id,
       role: decoded.role,
@@ -59,13 +55,12 @@ export const protect = async (
   }
 };
 
-// Restrict access to specific roles
 export const authorizeRoles = (...roles: Array<'user' | 'curator' | 'admin'>) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user || !roles.includes(req.user.role)) {
       res.status(403).json({
         success: false,
-        error: `Access denied. Role '${req.user?.role || 'anonymous'}' is not authorized to access this resource.`,
+        error: 'Forbidden. Access denied.',
       });
       return;
     }

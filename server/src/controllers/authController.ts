@@ -4,31 +4,25 @@ import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import { sendResponse as sendSuccess , sendError } from '../utils/response';
 
-// Helper to generate a JWT token
-const generateToken = (userId: string) => {
+const generateToken = (userId: string, role: string) => {
   const secret = process.env.JWT_SECRET || 'defaultsecret';
-  return jwt.sign({ id: userId }, secret, { expiresIn: '7d' });
+  return jwt.sign({ id: userId, role }, secret, { expiresIn: '7d' });
 };
 
-// @desc Register a new user (email, username, password)
-// @route POST /api/auth/register
 export const register = asyncHandler(async (req: Request, res: Response) => {
   const { email, username, password } = req.body;
   if (!email || !username || !password) {
     return sendError(res, 'Email, username and password are required', 400);
   }
-  // Check for existing user
   const existing = await User.findOne({ $or: [{ email }, { username }] });
   if (existing) {
     return sendError(res, 'User with given email or username already exists', 409);
   }
   const user = await User.create({ email, username, password, emailVerified: false, loginAttempts: 0, preferences: { notifications: true, newsletter: false }, stats: { artifactsViewed: 0, totalTimeSpent: 0, commentsCount: 0, favoritesCount: 0, museumsVisited: [] }, favorites: [], badges: [], role: 'user' });
-  const token = generateToken(user.id);
-  return sendSuccess(res, { token, user: { id: user.id, email: user.email, username: user.username } }, 'User registered');
+  const token = generateToken(user.id, user.role);
+  return sendSuccess(res, { token, user: { id: user.id, email: user.email, username: user.username, role: user.role } }, 'User registered');
 });
 
-// @desc Login an existing user
-// @route POST /api/auth/login
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -42,6 +36,6 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   if (!isMatch) {
     return sendError(res, 'Invalid credentials', 401);
   }
-  const token = generateToken(user.id);
-  return sendSuccess(res, { token, user: { id: user.id, email: user.email, username: user.username } }, 'Login successful');
+  const token = generateToken(user.id, user.role);
+  return sendSuccess(res, { token, user: { id: user.id, email: user.email, username: user.username, role: user.role } }, 'Login successful');
 });

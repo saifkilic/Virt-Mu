@@ -14,6 +14,10 @@ export const createArtifact = asyncHandler(async (req: Request, res: Response) =
     }
   }
 
+  if (req.file) {
+    req.body.images = [req.file.path];
+  }
+
   const artifact = await Artifact.create(req.body);
   sendSuccess(res, artifact, 'Artifact created', 201);
 });
