@@ -2,15 +2,68 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { UI_STRINGS } from '../context/translation';
-import { getArtifactsByMuseum } from '../services/api';
+import { api } from '../services/api';
 import type { Artifact } from '../services/api';
 import { ArrowLeft, X, Eye, Clock, Loader2, Heart, Share2, Info, Volume2 } from 'lucide-react';
+
+// 1. Isolated Static Config out of the Render Loop to optimize memory footprint
+const MUSEUM_CONFIG: Record<string, {
+  accent: string;
+  accentBg: string;
+  accentText: string;
+  name: string;
+  urduName: string;
+  badge: string;
+}> = {
+  lahore: {
+    accent: 'border-[#FF7F00]',
+    accentBg: 'bg-[#FF7F00]',
+    accentText: 'text-[#FF7F00]',
+    name: 'Lahore Museum',
+    urduName: 'لاہور میوزیم',
+    badge: 'MUGHAL SPLENDOR'
+  },
+  taxila: {
+    accent: 'border-[#1E3A8A]',
+    accentBg: 'bg-[#1E3A8A]',
+    accentText: 'text-[#1E3A8A]',
+    name: 'Taxila Museum',
+    urduName: 'ٹیکسلا میوزیم',
+    badge: 'UNESCO SITE'
+  },
+  national: {
+    accent: 'border-[#D4AF37]',
+    accentBg: 'bg-[#D4AF37]',
+    accentText: 'text-[#D4AF37]',
+    name: 'National Museum',
+    urduName: 'قومی میوزیم',
+    badge: 'GLOBAL COLLECTION'
+  },
+  mohenjo: {
+    accent: 'border-[#8B7355]',
+    accentBg: 'bg-[#8B7355]',
+    accentText: 'text-[#8B7355]',
+    name: 'Mohenjo-daro',
+    urduName: 'موہنجوڈاڑو',
+    badge: '3300 BCE'
+  }
+};
+
+const VALID_IDS = Object.keys(MUSEUM_CONFIG);
+
+const formatTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
 
 export const MuseumView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { language } = useLanguage();
-  const t = UI_STRINGS[language];
+  
+  // Unused assignment retained if needed elsewhere, otherwise safe to drop
+  // const t = UI_STRINGS[language]; 
 
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -18,84 +71,67 @@ export const MuseumView: React.FC = () => {
   
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
   const [viewedIds, setViewedIds] = useState<string[]>([]);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
+  const [timeElapsed, setTimeElapsed] = useState<number>(0);
   const [favorites, setFavorites] = useState<string[]>([]);
+  
   const dir = language === 'ur' ? 'rtl' : 'ltr';
 
+  // Resize Listener Optimization
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Spatial Session Counter Timer
   useEffect(() => {
     const timer = setInterval(() => setTimeElapsed((prev) => prev + 1), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    if (!id) return;
-    
-    const loadArtifacts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getArtifactsByMuseum(id);
-        setArtifacts(data);
-      } catch (err) {
-        setError(language === 'en' ? 'Failed to sync exhibit records.' : 'نمائش کا ریکارڈ مطابقت پذیری کرنے میں ناکام۔');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadArtifacts();
-  }, [id, language]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const museumConfig: Record<string, any> = {
-    lahore: {
-      accent: 'border-[#FF7F00]',
-      accentBg: 'bg-[#FF7F00]',
-      accentText: 'text-[#FF7F00]',
-      name: 'Lahore Museum',
-      urduName: 'لاہور میوزیم',
-      badge: 'MUGHAL SPLENDOR'
-    },
-    taxila: {
-      accent: 'border-[#1E3A8A]',
-      accentBg: 'bg-[#1E3A8A]',
-      accentText: 'text-[#1E3A8A]',
-      name: 'Taxila Museum',
-      urduName: 'ٹیکسلا میوزیم',
-      badge: 'UNESCO SITE'
-    },
-    national: {
-      accent: 'border-[#D4AF37]',
-      accentBg: 'bg-[#D4AF37]',
-      accentText: 'text-[#D4AF37]',
-      name: 'National Museum',
-      urduName: 'قومی میوزیم',
-      badge: 'GLOBAL COLLECTION'
-    },
-    mohenjo: {
-      accent: 'border-[#8B7355]',
-      accentBg: 'bg-[#8B7355]',
-      accentText: 'text-[#8B7355]',
-      name: 'Mohenjo-daro',
-      urduName: 'موہنجوڈاڑو',
-      badge: '3300 BCE'
+  // Unified Data Sync Pipeline
+ useEffect(() => {
+  if (!id || !VALID_IDS.includes(id)) return;
+  
+  const loadArtifacts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await api.getArtifactsByMuseum(id);
+      
+      const validatedData = Array.isArray(res) 
+        ? res 
+        : ((res as any)?.data || []);
+        
+      setArtifacts(validatedData);
+    } catch (err) {
+      setError(language === 'en' ? 'Failed to sync exhibit records.' : 'نمائش کا ریکارڈ مطابقت پذیری کرنے میں ناکام۔');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const validIds = ['lahore', 'taxila', 'national', 'mohenjo'];
-  if (!id || !validIds.includes(id)) {
+  loadArtifacts();
+}, [id, language]);
+
+  const handleSelectArtifact = (artifact: Artifact) => {
+    setSelectedArtifact(artifact);
+    if (!viewedIds.includes(artifact._id)) {
+      setViewedIds((prev) => [...prev, artifact._id]);
+    }
+  };
+
+  const toggleFavorite = (artifactId: string) => {
+    setFavorites((prev) =>
+      prev.includes(artifactId)
+        ? prev.filter((item) => item !== artifactId)
+        : [...prev, artifactId]
+    );
+  };
+
+  // Guard Rails for Route Parameters
+  if (!id || !VALID_IDS.includes(id)) {
     return (
       <div className="text-center py-20 space-y-6">
         <div className="inline-flex items-center justify-center w-16 h-16 bg-museum-red/10 rounded-full">
@@ -164,25 +200,11 @@ export const MuseumView: React.FC = () => {
     );
   }
 
-  const config = museumConfig[id];
-  const handleSelectArtifact = (artifact: Artifact) => {
-    setSelectedArtifact(artifact);
-    if (!viewedIds.includes(artifact._id)) {
-      setViewedIds((prev) => [...prev, artifact._id]);
-    }
-  };
-
-  const toggleFavorite = (artifactId: string) => {
-    setFavorites(prev =>
-      prev.includes(artifactId)
-        ? prev.filter(id => id !== artifactId)
-        : [...prev, artifactId]
-    );
-  };
+  const config = MUSEUM_CONFIG[id];
 
   return (
     <div className="space-y-6" dir={dir}>
-      {/* Back Button & Header */}
+      {/* Back Button & Header Control Group */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <button
           onClick={() => navigate('/')}
@@ -192,13 +214,13 @@ export const MuseumView: React.FC = () => {
           <span>{language === 'en' ? 'Back to Dashboard' : 'ڈیش بورڈ پر واپس جائیں'}</span>
         </button>
 
-        {/* Progress Indicator */}
+        {/* Progress & Temporal Tracker */}
         <div className="flex items-center gap-4 px-6 py-3 bg-white border border-light-gray/60 rounded-xl shadow-sm">
           <div className="flex items-center gap-2 text-sm font-body font-semibold text-deep-navy">
             <Eye className="h-4 w-4 text-deep-gold" />
             <span>{viewedIds.length}/{artifacts.length}</span>
           </div>
-          <div className="w-24 h-2 bg-light-gray rounded-full overflow-hidden">
+          <div className="w-24 h-2 bg-light-gray rounded-full overflow-hidden" role="progressbar" aria-valuenow={viewedIds.length} aria-valuemax={artifacts.length}>
             <div
               className={`h-full ${config.accentBg} transition-all duration-300`}
               style={{ width: `${(viewedIds.length / Math.max(artifacts.length, 1)) * 100}%` }}
@@ -211,11 +233,9 @@ export const MuseumView: React.FC = () => {
         </div>
       </div>
 
-      {/* Museum Hero Header */}
+      {/* Museum Context Banner */}
       <div className={`bg-white border-l-8 ${config.accent} rounded-r-2xl p-8 md:p-12 shadow-[0_4px_20px_rgba(0,0,0,0.05)] relative overflow-hidden`}>
-        {/* Background accent */}
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br from-light-gray to-transparent rounded-full -z-0 opacity-50" />
-
         <div className="relative z-10 space-y-4 max-w-3xl">
           <div className={`inline-block px-4 py-2 ${config.accentBg} text-white text-xs font-display font-bold rounded-lg`}>
             {config.badge}
@@ -233,10 +253,10 @@ export const MuseumView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Content Area */}
+      {/* Responsive Structural Layer */}
       <div className="pt-4">
         {isMobile ? (
-          // Mobile: 2D Gallery View
+          /* Mobile View: Linear Media Card List Layout */
           <div className="space-y-6">
             <div className="bg-gradient-to-r from-cream to-soft-white border border-light-gray/60 p-4 rounded-2xl text-center">
               <p className={`text-xs font-body font-semibold text-deep-navy/40 uppercase tracking-wider ${language === 'ur' ? 'font-urdu' : ''}`}>
@@ -258,8 +278,8 @@ export const MuseumView: React.FC = () => {
                 >
                   <div className="h-48 overflow-hidden relative bg-gradient-to-br from-light-gray to-light-gray/50">
                     <img 
-                      src={artifact.img} 
-                      alt={artifact.name[language]}
+                      src={artifact.images?.[0]?.url || 'https://picsum.photos/id/1015/800/600'} 
+                      alt={artifact.name[language] || 'Artifact Asset'}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       loading="lazy"
                     />
@@ -273,7 +293,7 @@ export const MuseumView: React.FC = () => {
                           {artifact.name[language]}
                         </h4>
                         <p className={`text-xs text-deep-gold font-body font-semibold uppercase tracking-wider mt-1 ${language === 'ur' ? 'font-urdu' : ''}`}>
-                          {artifact.period[language]}
+                         {artifact.historicalPeriod?.[language] || 'Unknown Period'}
                         </p>
                       </div>
                       <button
@@ -282,6 +302,7 @@ export const MuseumView: React.FC = () => {
                           toggleFavorite(artifact._id);
                         }}
                         className="p-2 rounded-lg hover:bg-cream/50 transition-colors"
+                        aria-label="Toggle Selection Favorite"
                       >
                         <Heart
                           className={`h-5 w-5 transition-all duration-300 ${
@@ -295,7 +316,7 @@ export const MuseumView: React.FC = () => {
 
                     <div className="flex items-center gap-2 text-xs text-deep-navy/60 font-body">
                       <Eye className="h-3.5 w-3.5 text-deep-gold" />
-                      <span>{viewedIds.includes(artifact._id) ? language === 'en' ? 'Viewed' : 'دیکھا گیا' : language === 'en' ? 'View' : 'دیکھیں'}</span>
+                      <span>{viewedIds.includes(artifact._id) ? (language === 'en' ? 'Viewed' : 'دیکھا گیا') : (language === 'en' ? 'View' : 'دیکھیں')}</span>
                     </div>
                   </div>
                 </div>
@@ -303,17 +324,14 @@ export const MuseumView: React.FC = () => {
             </div>
           </div>
         ) : (
-          // Desktop: 3D View with Sidebar
+          /* Desktop View: Interactive Canvas & Nested Sidebar Controls */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* 3D Scene Placeholder */}
             <div className="lg:col-span-2 bg-gradient-to-br from-rich-brown to-deep-navy h-[550px] rounded-2xl relative overflow-hidden border border-light-gray/20 shadow-[inset_0_2px_8px_rgba(0,0,0,0.1)]">
-              {/* Decorative gradient background */}
               <div className="absolute inset-0">
                 <div className="absolute inset-0 bg-gradient-to-br from-deep-navy/40 via-rich-brown/60 to-deep-navy/80" />
                 <div className="absolute top-0 right-0 w-80 h-80 bg-deep-gold/5 rounded-full blur-3xl" />
               </div>
 
-              {/* Canvas Header */}
               <div className="relative z-20 p-6 flex items-start justify-between">
                 <div className="space-y-2">
                   <div className="bg-deep-navy/60 backdrop-blur-md px-4 py-2 rounded-lg text-xs font-body uppercase tracking-widest border border-white/10">
@@ -325,7 +343,6 @@ export const MuseumView: React.FC = () => {
                 <Info className="h-5 w-5 text-cream/60" />
               </div>
 
-              {/* Center Content */}
               <div className="absolute inset-0 flex items-center justify-center z-10">
                 <div className="text-center space-y-8 px-6">
                   <div className="space-y-4">
@@ -336,30 +353,28 @@ export const MuseumView: React.FC = () => {
                     </p>
                   </div>
 
-                  {/* Artifact Hotspot Indicators */}
                   <div className="flex flex-wrap justify-center gap-4">
-                    {artifacts.slice(0, 4).map((artifact, idx) => (
-                      <button
-                        key={artifact._id}
-                        onClick={() => handleSelectArtifact(artifact)}
-                        className={`group relative w-14 h-14 rounded-full border-2 border-white/30 flex items-center justify-center shadow-lg hover:shadow-2xl transition-all duration-300 active:scale-95 ${config.accentBg}`}
-                        aria-label={artifact.name[language]}
-                        style={{
-                          animation: 'float 3s ease-in-out infinite',
-                          animationDelay: `${idx * 200}ms`
-                        }}
-                      >
-                        <Eye className="h-5 w-5 text-white" />
-                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-2 bg-deep-navy/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap pointer-events-none">
-                          {artifact.name[language]}
-                        </div>
-                      </button>
-                    ))}
+                    {Array.isArray(artifacts) && artifacts.slice(0, 4).map((artifact, idx) => (
+  <button
+    key={artifact._id}
+    onClick={() => handleSelectArtifact(artifact)}
+    className={`group relative w-14 h-14 rounded-full border-2 border-white/30 flex items-center justify-center shadow-lg hover:shadow-2xl transition-all duration-300 active:scale-95 ${config.accentBg}`}
+    aria-label={artifact.name[language]}
+    style={{
+      animation: 'float 3s ease-in-out infinite',
+      animationDelay: `${idx * 200}ms`
+    }}
+  >
+    <Eye className="h-5 w-5 text-white" />
+    <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-2 bg-deep-navy/90 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap pointer-events-none">
+      {artifact.name[language]}
+    </div>
+  </button>
+))}
                   </div>
                 </div>
               </div>
 
-              {/* CSS Animation */}
               <style>{`
                 @keyframes float {
                   0%, 100% { transform: translateY(0px); }
@@ -378,7 +393,7 @@ export const MuseumView: React.FC = () => {
               `}</style>
             </div>
 
-            {/* Right Sidebar: Artifact Grid */}
+            {/* Selection Dynamic Desktop Sidebar Content */}
             <div className="lg:col-span-1 space-y-4">
               <div className="bg-white border border-light-gray/60 rounded-2xl p-6 shadow-sm space-y-4">
                 <h3 className={`text-lg font-display font-bold text-rich-brown ${language === 'ur' ? 'font-urdu' : ''}`}>
@@ -386,24 +401,28 @@ export const MuseumView: React.FC = () => {
                 </h3>
 
                 <div className="space-y-2 max-h-[450px] overflow-y-auto scroll-smooth">
-                  {artifacts.map((artifact) => (
-                    <button
-                      key={artifact._id}
-                      onClick={() => handleSelectArtifact(artifact)}
-                      className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-all duration-300 group ${
-                        selectedArtifact?._id === artifact._id
-                          ? `${config.accentBg} text-white border-transparent`
-                          : 'bg-cream/40 text-deep-navy border-light-gray/40 hover:bg-cream hover:border-deep-gold/30'
-                      }`}
-                    >
-                      <p className={`font-display font-bold text-sm line-clamp-1 ${language === 'ur' ? 'font-urdu' : ''}`}>
-                        {artifact.name[language]}
-                      </p>
-                      <p className={`text-xs ${selectedArtifact?._id === artifact._id ? 'text-white/80' : 'text-deep-navy/60'} mt-0.5 line-clamp-1 ${language === 'ur' ? 'font-urdu' : 'font-body'}`}>
-                        {artifact.period[language]}
-                      </p>
-                    </button>
-                  ))}
+                  {Array.isArray(artifacts) && artifacts.map((artifact) => {
+                    const isSelected = selectedArtifact?._id === artifact._id;
+                    return (
+                      <button
+                        key={artifact._id}
+                        onClick={() => handleSelectArtifact(artifact)}
+                        aria-current={isSelected ? 'true' : undefined}
+                        className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-all duration-300 group ${
+                          isSelected
+                            ? `${config.accentBg} text-white border-transparent`
+                            : 'bg-cream/40 text-deep-navy border-light-gray/40 hover:bg-cream hover:border-deep-gold/30'
+                        }`}
+                      >
+                        <p className={`font-display font-bold text-sm line-clamp-1 ${language === 'ur' ? 'font-urdu' : ''}`}>
+                          {artifact.name[language]}
+                        </p>
+                        <p className={`text-xs ${isSelected ? 'text-white/80' : 'text-deep-navy/60'} mt-0.5 line-clamp-1 ${language === 'ur' ? 'font-urdu' : 'font-body'}`}>
+                          {artifact.historicalPeriod?.[language] || 'Unknown Period'}
+                        </p>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <p className={`text-xs text-deep-navy/50 text-center italic ${language === 'ur' ? 'font-urdu' : 'font-body'}`}>
@@ -415,7 +434,7 @@ export const MuseumView: React.FC = () => {
         )}
       </div>
 
-      {/* Information Panel */}
+      {/* Slide-out Overlay/Drawer Panel for Selected Items */}
       {selectedArtifact && (
         <aside 
           className={`fixed z-50 bg-gradient-to-br from-deep-navy/95 to-rich-brown/95 backdrop-blur-xl text-white border-l-8 ${config.accent} transition-all duration-300 ease-out shadow-2xl overflow-y-auto
@@ -425,7 +444,6 @@ export const MuseumView: React.FC = () => {
             }`}
         >
           <div className="p-8 h-full flex flex-col justify-between relative">
-            {/* Close Button */}
             <button
               onClick={() => setSelectedArtifact(null)}
               className="absolute top-6 right-6 w-12 h-12 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-all duration-300 text-white focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
@@ -434,19 +452,15 @@ export const MuseumView: React.FC = () => {
               <X className="h-6 w-6" />
             </button>
 
-            {/* Content */}
             <div className="space-y-6 pt-8">
-              {/* Image */}
               <div className="aspect-video w-full rounded-xl overflow-hidden bg-black/20 border border-white/10 shadow-lg">
                 <img
-                  src={selectedArtifact.img}
-                  alt={selectedArtifact.name[language]}
+                  src={selectedArtifact.images?.[0]?.url || 'https://picsum.photos/id/1015/800/600'}
+                  alt={selectedArtifact.name[language] || 'Artifact Asset Visual View'}
                   className="w-full h-full object-cover"
-                  loading="lazy"
                 />
               </div>
               
-              {/* Title & Period */}
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-grow">
@@ -454,30 +468,27 @@ export const MuseumView: React.FC = () => {
                       {selectedArtifact.name[language]}
                     </h2>
                     <p className={`text-xs font-body font-semibold uppercase tracking-wider ${config.accentText} mt-3 ${language === 'ur' ? 'font-urdu' : ''}`}>
-                      {selectedArtifact.period[language]}
+                      {selectedArtifact.historicalPeriod?.[language] || 'Unknown Period'}
                     </p>
                   </div>
                   <button
                     onClick={() => toggleFavorite(selectedArtifact._id)}
                     className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-all duration-300 flex-shrink-0"
+                    aria-label="Favorite this artifact"
                   >
                     <Heart
                       className={`h-6 w-6 transition-all duration-300 ${
-                        favorites.includes(selectedArtifact._id)
-                          ? 'fill-current'
-                          : ''
+                        favorites.includes(selectedArtifact._id) ? 'fill-current text-museum-red' : ''
                       }`}
                     />
                   </button>
                 </div>
               </div>
 
-              {/* Description */}
               <p className={`text-base leading-relaxed text-cream/90 ${language === 'ur' ? 'font-urdu text-right text-lg' : 'font-body'}`} dir={language === 'ur' ? 'rtl' : 'ltr'}>
                 {selectedArtifact.description[language]}
               </p>
 
-              {/* Action Buttons */}
               <div className="flex items-center gap-3 pt-4 border-t border-white/10">
                 <button className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 rounded-lg transition-all duration-300 text-sm font-body font-semibold">
                   <Share2 className="h-4 w-4" />
@@ -490,7 +501,6 @@ export const MuseumView: React.FC = () => {
               </div>
             </div>
 
-            {/* Footer Actions */}
             <div className="pt-6 border-t border-white/10 space-y-3">
               <button
                 onClick={() => setSelectedArtifact(null)}

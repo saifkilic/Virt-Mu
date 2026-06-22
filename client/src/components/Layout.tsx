@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Navbar } from './Navbar';
 import { useLanguage } from '../context/LanguageContext';
@@ -38,7 +39,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         aria-label="Mobile navigation"
       >
         <div className="flex items-center justify-around h-full">
-          {navItems.map((item) => {
+          {navItems.map((item, idx) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path || 
                            (item.path === '/favorites' && location.pathname === '/favorites') ||
@@ -46,7 +47,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             
             return (
               <NavLink 
-                key={item.path}
+                key={`${item.path}-${idx}`}
                 to={item.path}
                 className={`flex flex-col items-center justify-center w-14 h-14 rounded-xl transition-all duration-300 group focus-visible:outline-2 focus-visible:outline-deep-gold focus-visible:outline-offset-2 relative ${
                   isActive 
@@ -195,3 +196,4 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     </div>
   );
 };
+
