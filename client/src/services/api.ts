@@ -133,23 +133,18 @@ export const api = {
   // Museum Endpoints
   getMuseums: async (): Promise<Museum[]> => {
     const { data } = await apiClient.get('/museums');
-    console.log('🏛️ Museums Response:', data);
     
     if (Array.isArray(data?.data)) {
-      console.log(`✅ Found ${data.data.length} museums in data.data`);
       return data.data;
     }
     if (Array.isArray(data)) {
-      console.log(`✅ Found ${data.length} museums directly`);
       return data;
     }
-    console.warn('⚠️ Unexpected museums response structure');
     return [];
   },
 
   getMuseumByCode: async (code: string): Promise<Museum> => {
     const { data } = await apiClient.get(`/museums/${code}`);
-    console.log('🏛️ Museum by Code Response:', data);
     
     if (data?.data) {
       return data.data;
@@ -160,7 +155,6 @@ export const api = {
   // Room Endpoints
   getRoomsByMuseum: async (museumCode: string): Promise<Room[]> => {
     const { data } = await apiClient.get(`/museums/${museumCode}/rooms`);
-    console.log('🚪 Rooms Response:', data);
     
     if (Array.isArray(data?.data)) {
       return data.data;
@@ -195,26 +189,17 @@ export const api = {
 
   getArtifactsByMuseum: async (museumCode: string): Promise<Artifact[]> => {
     const { data } = await apiClient.get(`/artifacts?museumCode=${museumCode}`);
-    console.log('🎨 Artifacts API Response:', data);
     
     if (data?.data?.artifacts && Array.isArray(data.data.artifacts)) {
-      console.log(`✅ Found ${data.data.artifacts.length} artifacts in data.data!`);
       return data.data.artifacts;
     }
     if (data?.artifacts && Array.isArray(data.artifacts)) {
-      console.log(`✅ Found ${data.artifacts.length} artifacts in data!`);
       return data.artifacts;
     }
     if (Array.isArray(data)) {
-      console.log(`✅ Data is array with ${data.length} artifacts`);
       return data;
     }
     
-    console.error('❌ Could not find artifacts array', { 
-      response: data,
-      hasDataDotData: !!data?.data,
-      hasArtifacts: !!data?.data?.artifacts,
-    });
     return [];
   },
 
@@ -232,21 +217,16 @@ export const api = {
   getUserFavoritesWithDetails: async (): Promise<Artifact[]> => {
     try {
       const { data } = await apiClient.get('/favorites');
-      console.log('❤️ Favorites with Details Response:', data);
       
       if (Array.isArray(data?.data)) {
-        console.log(`✅ Found ${data.data.length} favorite artifacts with details`);
         return data.data;
       }
       if (Array.isArray(data)) {
-        console.log(`✅ Found ${data.length} favorite artifacts`);
         return data;
       }
       
-      console.warn('⚠️ Unexpected favorites response structure');
       return [];
     } catch (error) {
-      console.error('Failed to load favorite artifacts:', error);
       return [];
     }
   },
