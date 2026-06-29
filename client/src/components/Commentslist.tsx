@@ -1,6 +1,6 @@
 // src/components/CommentsList.tsx
 import React, { useState, useEffect } from 'react';
-import { api, type Comment, type CommentResponse } from '../services/api';
+import { api, type Comment } from '../services/api';
 import { Star, Loader2, Trash2, Edit2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
