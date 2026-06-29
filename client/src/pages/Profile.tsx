@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { UI_STRINGS } from '../context/translation';
 import { useAuth } from '../context/AuthContext';
 import { 
   LogOut,
@@ -23,7 +22,6 @@ export const Profile: React.FC = () => {
   const { language } = useLanguage();
   const { user, logout, refreshUserData } = useAuth();
   const navigate = useNavigate();
-  const t = UI_STRINGS[language];
   
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
