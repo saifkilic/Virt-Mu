@@ -23,7 +23,7 @@ export const createArtifact = asyncHandler(async (req: Request, res: Response) =
 });
 
 export const getArtifacts = asyncHandler(async (req: Request, res: Response) => {
-  const { page = '1', limit = '10', category, museumCode, tags, description, historicalPeriod } = req.query as any;
+  const { category, museumCode, tags, description, historicalPeriod } = req.query as any;
   const filter: any = {};
   
   if (category) filter.category = category;
@@ -35,12 +35,10 @@ export const getArtifacts = asyncHandler(async (req: Request, res: Response) => 
   if (description) filter.description = { $regex: description as string, $options: 'i' };
   if (historicalPeriod) filter['historicalPeriod.en'] = { $regex: historicalPeriod as string, $options: 'i' };
   
-  const pageNum = Math.max(parseInt(page as string, 10), 1);
-  const limitNum = Math.max(parseInt(limit as string, 10), 1);
   const total = await Artifact.countDocuments(filter);
-  const artifacts = await Artifact.find(filter).skip((pageNum - 1) * limitNum).limit(limitNum);
+  const artifacts = await Artifact.find(filter);
   
-  sendSuccess(res, { artifacts, total, page: pageNum, limit: limitNum }, 'Artifacts fetched with filters');
+  sendSuccess(res, { artifacts, total }, 'Artifacts fetched with filters');
 });
 
 export const getArtifact = asyncHandler(async (req: Request, res: Response) => {

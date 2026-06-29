@@ -1,303 +1,374 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { UI_STRINGS } from '../context/translation';
-import { User, Clock, Trophy, Zap, Settings, LogOut, Mail, MapPin, Globe, Bookmark, Eye, Award } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { 
+  LogOut,
+  Edit2,
+  Check,
+  Eye,
+  EyeOff
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../services/api';
+import toast from 'react-hot-toast';
+
+interface EditFormData {
+  username: string;
+  newPassword: string;
+  confirmPassword: string;
+}
 
 export const Profile: React.FC = () => {
   const { language } = useLanguage();
+  const { user, logout, refreshUserData } = useAuth();
+  const navigate = useNavigate();
   const t = UI_STRINGS[language];
-  const [activeTab, setActiveTab] = useState('overview');
+  
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSuccess, setEditSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  const [formData, setFormData] = useState<EditFormData>({
+    username: user?.username || '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
   const dir = language === 'ur' ? 'rtl' : 'ltr';
 
-  const achievements = [
-    { id: 1, icon: Eye, label: language === 'en' ? 'Explorer' : 'تلاش کار', description: language === 'en' ? 'Viewed 10 artifacts' : '10 نوادرات دیکھے', completed: true },
-    { id: 2, icon: Bookmark, label: language === 'en' ? 'Collector' : 'جمع کار', description: language === 'en' ? 'Saved 5 artifacts' : '5 نوادرات محفوظ کیے', completed: true },
-    { id: 3, icon: Award, label: language === 'en' ? 'Scholar' : 'عالم', description: language === 'en' ? 'Explored all museums' : 'تمام میوزیمز تلاش کیے', completed: false },
-  ];
+  // Format member since date
+  const formatMemberDate = (date?: string | Date) => {
+    if (!date) return 'N/A';
+    const dateObj = date instanceof Date ? date : new Date(date);
+    return dateObj.toLocaleDateString(language === 'en' ? 'en-US' : 'ur-PK', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
 
-  const activityLog = [
-    { date: '2 days ago', action: language === 'en' ? 'Viewed Mughal Mirror' : 'مغل آئینہ دیکھا', museum: 'Lahore' },
-    { date: '4 days ago', action: language === 'en' ? 'Saved Buddhist Statue' : 'بدھ مت کا مجسمہ محفوظ کیا', museum: 'Taxila' },
-    { date: '1 week ago', action: language === 'en' ? 'Completed museum tour' : 'میوزیم کا دورہ مکمل کیا', museum: 'National Museum' },
-  ];
+  // Handle logout
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      navigate('/');
+    } catch (err) {
+      console.error('Logout failed:', err);
+      setIsLoggingOut(false);
+    }
+  };
+
+  // Handle profile update
+  const handleSaveProfile = async () => {
+    setEditError(null);
+    setEditSuccess(false);
+
+    // Validate inputs
+    if (!formData.username.trim()) {
+      setEditError(language === 'en' ? 'Username cannot be empty' : 'صارف نام خالی نہیں ہو سکتا');
+      return;
+    }
+
+    if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
+      setEditError(language === 'en' ? 'Passwords do not match' : 'پاس ورڈ مماثل نہیں ہیں');
+      return;
+    }
+
+    if (formData.newPassword && formData.newPassword.length < 6) {
+      setEditError(language === 'en' ? 'Password must be at least 6 characters' : 'پاس ورڈ کم از کم 6 حروف ہونا چاہیے');
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      // Call API to update profile
+      const updateData: any = {
+        username: formData.username,
+      };
+
+      if (formData.newPassword) {
+        updateData.password = formData.newPassword;
+      }
+
+      const response = await api.updateProfile(updateData);
+
+      if (response) {
+        setEditSuccess(true);
+        setIsEditingProfile(false);
+        setFormData({
+          username: formData.username,
+          newPassword: '',
+          confirmPassword: '',
+        });
+        await refreshUserData();
+        toast.success(
+          language === 'en' 
+            ? 'Profile updated successfully' 
+            : 'پروفائل کامیابی سے اپڈیٹ ہو گیا'
+        );
+
+        // Auto-hide success message
+        setTimeout(() => setEditSuccess(false), 3000);
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to save profile';
+      setEditError(msg);
+      toast.error(msg);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className={`text-lg ${language === 'ur' ? 'font-urdu' : 'font-body'}`}>
+            {language === 'en' ? 'Loading profile...' : 'پروفائل لوڈ ہو رہا ہے...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8" dir={dir}>
       {/* Profile Header */}
-      <div className="space-y-6">
-        <div className="bg-gradient-to-r from-deep-navy via-pk-green to-deep-navy/80 rounded-3xl p-8 md:p-12 relative overflow-hidden shadow-[0_12px_32px_rgba(0,0,0,0.1)]">
-          {/* Decorative Background Elements */}
-          <div className="absolute top-0 right-0 w-40 h-40 bg-deep-gold/10 rounded-full blur-3xl -z-0" />
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-gold-accent/10 rounded-full blur-3xl -z-0" />
+      <div className="bg-gradient-to-br from-deep-navy via-rich-brown to-deep-navy rounded-3xl p-8 md:p-12 shadow-lg">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="space-y-2">
+            <h1 className={`text-4xl md:text-5xl font-display font-bold text-white ${language === 'ur' ? 'font-urdu' : ''}`}>
+              {user.username}
+            </h1>
+            <p className={`text-cream/80 ${language === 'ur' ? 'font-urdu' : 'font-body'}`}>
+              {language === 'en' ? `Member since ${formatMemberDate(user.createdAt)}` : `${formatMemberDate(user.createdAt)} سے رکن`}
+            </p>
+          </div>
+          <button
+            onClick={() => setIsEditingProfile(!isEditingProfile)}
+            className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg text-white font-body font-semibold transition-all duration-300 flex items-center gap-2 w-fit"
+          >
+            <Edit2 className="h-5 w-5" />
+            {isEditingProfile 
+              ? (language === 'en' ? 'Cancel' : 'منسوخ کریں')
+              : (language === 'en' ? 'Edit Profile' : 'پروفائل میں ترمیم کریں')
+            }
+          </button>
+        </div>
+      </div>
 
-          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
-            {/* Avatar */}
-            <div className="relative">
-              <div className="w-24 h-24 bg-gradient-to-br from-deep-gold to-gold-accent rounded-2xl flex items-center justify-center shadow-2xl ring-4 ring-white/20">
-                <User className="h-12 w-12 text-rich-brown" />
-              </div>
-              <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-pk-green rounded-full border-4 border-white flex items-center justify-center">
-                <Zap className="h-4 w-4 text-white" />
-              </div>
-            </div>
-
-            {/* Info */}
-            <div className="flex-grow space-y-3 text-white">
-              <div>
-                <h1 className={`text-3xl md:text-4xl font-display font-bold ${language === 'ur' ? 'font-urdu' : ''}`}>
-                  {language === 'en' ? 'Visitor Profile' : 'وزیٹر پروفائل'}
-                </h1>
-                <p className={`text-cream/80 text-sm mt-1 ${language === 'ur' ? 'font-urdu' : 'font-body'}`}>
-                  {language === 'en' ? 'heritage_explorer_2024' : 'میراث_تلاش_کار_2024'}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-4 text-sm font-body">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-deep-gold" />
-                  <span>{language === 'en' ? 'Member since 2024' : '2024 سے رکن'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-deep-gold" />
-                  <span>{language === 'en' ? '2 of 3 badges' : '3 میں سے 2 شارژ'}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* CTA Button */}
-            <button className={`px-6 py-3 bg-deep-gold text-rich-brown font-body font-bold rounded-xl hover:bg-gold-accent transition-all duration-300 shadow-lg hover:shadow-xl focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 whitespace-nowrap ${language === 'ur' ? 'font-urdu' : ''}`}>
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto">
+        {isEditingProfile ? (
+          // Edit Mode
+          <div className="bg-white border border-light-gray/60 rounded-2xl p-8 shadow-sm">
+            <h2 className={`text-2xl font-display font-bold text-rich-brown mb-6 flex items-center gap-3 ${language === 'ur' ? 'font-urdu' : ''}`}>
+              <div className="w-1 h-8 bg-deep-gold rounded-full" />
               {language === 'en' ? 'Edit Profile' : 'پروفائل میں ترمیم'}
-            </button>
-          </div>
-        </div>
+            </h2>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { value: '24', label: language === 'en' ? 'Total Views' : 'کل نظارے', icon: Eye },
-            { value: '12', label: language === 'en' ? 'Saved' : 'محفوظ', icon: Bookmark },
-            { value: '3h 42m', label: language === 'en' ? 'Time Spent' : 'وقت صرف', icon: Clock },
-            { value: '3', label: language === 'en' ? 'Museums' : 'میوزیمز', icon: Globe },
-          ].map((stat, idx) => {
-            const Icon = stat.icon;
-            return (
-              <div key={idx} className="bg-white border border-light-gray/60 rounded-xl p-4 hover:shadow-lg transition-all duration-300">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-deep-gold/10 rounded-lg">
-                    <Icon className="h-5 w-5 text-deep-gold" />
-                  </div>
-                </div>
-                <p className={`text-2xl font-display font-bold text-rich-brown ${language === 'ur' ? 'font-urdu' : ''}`}>
-                  {stat.value}
-                </p>
-                <p className={`text-xs text-deep-navy/60 mt-1 ${language === 'ur' ? 'font-urdu' : 'font-body'}`}>
-                  {stat.label}
+            {/* Error Message */}
+            {editError && (
+              <div className="mb-6 p-4 bg-museum-red/10 border border-museum-red/30 rounded-lg">
+                <p className={`text-museum-red text-sm font-body ${language === 'ur' ? 'font-urdu' : ''}`}>
+                  {editError}
                 </p>
               </div>
-            );
-          })}
-        </div>
-      </div>
+            )}
 
-      {/* Tabs */}
-      <div className="border-b border-light-gray/40">
-        <div className="flex gap-0 overflow-x-auto">
-          {[
-            { id: 'overview', label: language === 'en' ? 'Overview' : 'جائزہ' },
-            { id: 'achievements', label: language === 'en' ? 'Achievements' : 'حصول' },
-            { id: 'activity', label: language === 'en' ? 'Activity' : 'سرگرمی' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-4 font-body font-semibold text-sm whitespace-nowrap border-b-2 transition-all duration-300 focus-visible:outline-2 focus-visible:outline-deep-gold focus-visible:outline-offset-4 ${
-                activeTab === tab.id
-                  ? 'border-deep-gold text-deep-gold'
-                  : 'border-transparent text-deep-navy/60 hover:text-deep-navy'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+            {/* Success Message */}
+            {editSuccess && (
+              <div className="mb-6 p-4 bg-pk-green/10 border border-pk-green/30 rounded-lg flex items-center gap-2">
+                <Check className="h-5 w-5 text-pk-green" />
+                <p className={`text-pk-green text-sm font-body ${language === 'ur' ? 'font-urdu' : ''}`}>
+                  {language === 'en' ? 'Profile updated successfully!' : 'پروفائل کامیابی سے اپڈیٹ ہو گیا!'}
+                </p>
+              </div>
+            )}
 
-      {/* Tab Content */}
-      <div className="animate-in fade-in duration-300">
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Personal Information */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white border border-light-gray/60 rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300">
-                <h3 className={`text-lg font-display font-bold text-rich-brown mb-6 flex items-center gap-3 ${language === 'ur' ? 'font-urdu' : ''}`}>
-                  <div className="w-1 h-6 bg-deep-gold rounded-full" />
-                  {language === 'en' ? 'Personal Information' : 'ذاتی معلومات'}
-                </h3>
+            <div className="space-y-6">
+              {/* Email (Read-only) */}
+              <div>
+                <label className={`block text-xs font-body font-semibold text-deep-navy/70 uppercase tracking-wider mb-2 ${language === 'ur' ? 'font-urdu' : ''}`}>
+                  {language === 'en' ? 'Email Address' : 'ای میل ایڈریس'}
+                </label>
+                <input
+                  type="email"
+                  value={user.email}
+                  readOnly
+                  className="w-full px-4 py-3 bg-cream border border-light-gray/60 rounded-lg text-deep-navy font-body text-sm cursor-not-allowed"
+                />
+                <p className={`text-xs text-deep-navy/50 mt-1 ${language === 'ur' ? 'font-urdu' : 'font-body'}`}>
+                  {language === 'en' ? 'Email cannot be changed' : 'ای میل تبدیل نہیں کی جا سکتی'}
+                </p>
+              </div>
 
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className={`block text-xs font-body font-semibold text-deep-navy/70 uppercase tracking-wider mb-2 ${language === 'ur' ? 'font-urdu' : ''}`}>
-                        {language === 'en' ? 'Full Name' : 'مکمل نام'}
-                      </label>
-                      <input
-                        type="text"
-                        value={language === 'en' ? 'Heritage Explorer' : 'میراث تلاش کار'}
-                        readOnly
-                        className="w-full px-4 py-3 bg-cream border border-light-gray/60 rounded-lg text-deep-navy font-body text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-xs font-body font-semibold text-deep-navy/70 uppercase tracking-wider mb-2 ${language === 'ur' ? 'font-urdu' : ''}`}>
-                        {language === 'en' ? 'Email' : 'ای میل'}
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-5 w-5 text-deep-gold" />
-                        <input
-                          type="email"
-                          value="explorer@heritage.museum"
-                          readOnly
-                          className="flex-grow px-4 py-3 bg-cream border border-light-gray/60 rounded-lg text-deep-navy font-body text-sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
+              {/* Username */}
+              <div>
+                <label className={`block text-xs font-body font-semibold text-deep-navy/70 uppercase tracking-wider mb-2 ${language === 'ur' ? 'font-urdu' : ''}`}>
+                  {language === 'en' ? 'Username' : 'صارف نام'}
+                </label>
+                <input
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-light-gray/60 rounded-lg text-deep-navy font-body text-sm focus:outline-none focus:border-deep-gold focus:ring-2 focus:ring-deep-gold/20"
+                  placeholder={language === 'en' ? 'Enter new username' : 'نیا صارف نام درج کریں'}
+                />
+              </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className={`block text-xs font-body font-semibold text-deep-navy/70 uppercase tracking-wider mb-2 ${language === 'ur' ? 'font-urdu' : ''}`}>
-                        {language === 'en' ? 'Location' : 'مقام'}
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-5 w-5 text-deep-gold" />
-                        <input
-                          type="text"
-                          value={language === 'en' ? 'Rawalpindi, Pakistan' : 'راولپنڈی، پاکستان'}
-                          readOnly
-                          className="flex-grow px-4 py-3 bg-cream border border-light-gray/60 rounded-lg text-deep-navy font-body text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className={`block text-xs font-body font-semibold text-deep-navy/70 uppercase tracking-wider mb-2 ${language === 'ur' ? 'font-urdu' : ''}`}>
-                        {language === 'en' ? 'Member Since' : 'رکن ہونے کے بعد سے'}
-                      </label>
-                      <input
-                        type="text"
-                        value="January 15, 2024"
-                        readOnly
-                        className="w-full px-4 py-3 bg-cream border border-light-gray/60 rounded-lg text-deep-navy font-body text-sm"
-                      />
-                    </div>
-                  </div>
+              {/* New Password */}
+              <div>
+                <label className={`block text-xs font-body font-semibold text-deep-navy/70 uppercase tracking-wider mb-2 ${language === 'ur' ? 'font-urdu' : ''}`}>
+                  {language === 'en' ? 'New Password (Optional)' : 'نیا پاس ورڈ (اختیاری)'}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.newPassword}
+                    onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                    className="w-full px-4 py-3 pr-12 bg-white border border-light-gray/60 rounded-lg text-deep-navy font-body text-sm focus:outline-none focus:border-deep-gold focus:ring-2 focus:ring-deep-gold/20"
+                    placeholder={language === 'en' ? 'Enter new password' : 'نیا پاس ورڈ درج کریں'}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-deep-navy/50 hover:text-deep-navy"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
               </div>
 
-              {/* Preferences */}
-              <div className="bg-white border border-light-gray/60 rounded-2xl p-6 shadow-sm hover:shadow-lg transition-all duration-300">
-                <h3 className={`text-lg font-display font-bold text-rich-brown mb-6 flex items-center gap-3 ${language === 'ur' ? 'font-urdu' : ''}`}>
-                  <Settings className="h-5 w-5 text-deep-gold" />
-                  {language === 'en' ? 'Preferences' : 'ترجیحات'}
-                </h3>
-
-                <div className="space-y-4">
-                  {[
-                    { label: language === 'en' ? 'Email Notifications' : 'ای میل اطلاعات', enabled: true },
-                    { label: language === 'en' ? 'Museum Updates' : 'میوزیم کی تازہ کاری', enabled: true },
-                    { label: language === 'en' ? 'New Artifact Alerts' : 'نئی نوادرات کی انتباہات', enabled: false },
-                  ].map((pref, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-4 bg-cream/40 rounded-lg hover:bg-cream/60 transition-colors duration-300">
-                      <span className={`font-body text-sm text-deep-navy ${language === 'ur' ? 'font-urdu' : ''}`}>
-                        {pref.label}
-                      </span>
-                      <div className={`w-12 h-6 rounded-full transition-all duration-300 ${pref.enabled ? 'bg-pk-green' : 'bg-light-gray'}`}>
-                        <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-all duration-300 ${pref.enabled ? 'translate-x-6' : 'translate-x-0.5 translate-y-0.5'}`} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="space-y-4">
-              <button className="w-full px-6 py-4 bg-gradient-to-r from-deep-gold to-gold-accent text-rich-brown font-body font-bold rounded-xl hover:shadow-lg transition-all duration-300 focus-visible:outline-2 focus-visible:outline-deep-gold focus-visible:outline-offset-2 flex items-center justify-center gap-2 min-h-[48px]">
-                <Settings className="h-5 w-5" />
-                {language === 'en' ? 'Account Settings' : 'اکاؤنٹ کی ترتیبات'}
-              </button>
-              <button className="w-full px-6 py-4 bg-white border border-light-gray/60 text-deep-navy font-body font-bold rounded-xl hover:border-deep-gold/40 hover:bg-cream/40 transition-all duration-300 focus-visible:outline-2 focus-visible:outline-deep-gold focus-visible:outline-offset-2 flex items-center justify-center gap-2 min-h-[48px]">
-                <Globe className="h-5 w-5" />
-                {language === 'en' ? 'Help & Support' : 'مدد اور معاونت'}
-              </button>
-              <button className="w-full px-6 py-4 bg-white border border-museum-red/30 text-museum-red font-body font-bold rounded-xl hover:border-museum-red/60 hover:bg-museum-red/5 transition-all duration-300 focus-visible:outline-2 focus-visible:outline-museum-red focus-visible:outline-offset-2 flex items-center justify-center gap-2 min-h-[48px]">
-                <LogOut className="h-5 w-5" />
-                {language === 'en' ? 'Sign Out' : 'سائن آؤٹ'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Achievements Tab */}
-        {activeTab === 'achievements' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {achievements.map((achievement, idx) => {
-              const Icon = achievement.icon;
-              return (
-                <div
-                  key={achievement.id}
-                  className={`group rounded-2xl p-6 border transition-all duration-300 cursor-pointer hover:shadow-lg ${
-                    achievement.completed
-                      ? 'bg-gradient-to-br from-deep-gold/10 to-gold-accent/10 border-deep-gold/40 hover:border-deep-gold/60'
-                      : 'bg-cream/50 border-light-gray/40 opacity-60'
-                  }`}
-                  style={{ animationDelay: `${idx * 100}ms` }}
-                >
-                  <div className={`w-16 h-16 rounded-xl flex items-center justify-center mb-4 transition-all duration-300 ${
-                    achievement.completed
-                      ? 'bg-deep-gold/20 text-deep-gold group-hover:scale-110 group-hover:bg-deep-gold/30'
-                      : 'bg-light-gray text-deep-navy/40'
-                  }`}>
-                    <Icon className="h-8 w-8" />
+              {/* Confirm Password */}
+              {formData.newPassword && (
+                <div>
+                  <label className={`block text-xs font-body font-semibold text-deep-navy/70 uppercase tracking-wider mb-2 ${language === 'ur' ? 'font-urdu' : ''}`}>
+                    {language === 'en' ? 'Confirm Password' : 'پاس ورڈ کی تصدیق کریں'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={formData.confirmPassword}
+                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                      className="w-full px-4 py-3 pr-12 bg-white border border-light-gray/60 rounded-lg text-deep-navy font-body text-sm focus:outline-none focus:border-deep-gold focus:ring-2 focus:ring-deep-gold/20"
+                      placeholder={language === 'en' ? 'Confirm password' : 'پاس ورڈ کی تصدیق کریں'}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-deep-navy/50 hover:text-deep-navy"
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
                   </div>
-                  <h4 className={`font-display font-bold text-lg mb-1 ${achievement.completed ? 'text-rich-brown' : 'text-deep-navy/50'} ${language === 'ur' ? 'font-urdu' : ''}`}>
-                    {achievement.label}
-                  </h4>
-                  <p className={`text-sm font-body ${achievement.completed ? 'text-deep-navy/70' : 'text-deep-navy/40'} ${language === 'ur' ? 'font-urdu' : ''}`}>
-                    {achievement.description}
-                  </p>
-                  {achievement.completed && (
-                    <div className="mt-4 inline-block px-3 py-1 bg-pk-green/20 text-pk-green text-xs font-body font-semibold rounded-lg">
-                      {language === 'en' ? 'Unlocked' : 'اتم ہوا'}
-                    </div>
-                  )}
                 </div>
-              );
-            })}
-          </div>
-        )}
+              )}
 
-        {/* Activity Tab */}
-        {activeTab === 'activity' && (
-          <div className="space-y-3">
-            {activityLog.map((activity, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-4 p-4 bg-white border border-light-gray/60 rounded-xl hover:shadow-lg transition-all duration-300"
+              {/* Save Button */}
+              <button
+                onClick={handleSaveProfile}
+                disabled={isSaving}
+                className="w-full px-6 py-4 bg-gradient-to-r from-deep-gold to-gold-accent text-rich-brown font-body font-bold rounded-xl hover:shadow-lg transition-all duration-300 focus-visible:outline-2 focus-visible:outline-deep-gold focus-visible:outline-offset-2 flex items-center justify-center gap-2 min-h-[56px] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <div className="w-2 h-2 bg-deep-gold rounded-full" />
-                <div className="flex-grow">
-                  <p className={`font-body font-semibold text-deep-navy ${language === 'ur' ? 'font-urdu' : ''}`}>
-                    {activity.action}
-                  </p>
-                  <p className={`text-xs text-deep-navy/60 mt-1 ${language === 'ur' ? 'font-urdu' : 'font-body'}`}>
-                    {activity.museum}
-                  </p>
+                {isSaving ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-rich-brown/30 border-t-rich-brown rounded-full animate-spin" />
+                    {language === 'en' ? 'Saving...' : 'محفوظ ہو رہا ہے...'}
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-5 w-5" />
+                    {language === 'en' ? 'Save Changes' : 'تبدیلیاں محفوظ کریں'}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          // View Mode
+          <div className="space-y-6">
+            {/* Personal Information */}
+            <div className="bg-white border border-light-gray/60 rounded-2xl p-8 shadow-sm hover:shadow-lg transition-all duration-300">
+              <h3 className={`text-lg font-display font-bold text-rich-brown mb-6 flex items-center gap-3 ${language === 'ur' ? 'font-urdu' : ''}`}>
+                <div className="w-1 h-6 bg-deep-gold rounded-full" />
+                {language === 'en' ? 'Personal Information' : 'ذاتی معلومات'}
+              </h3>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className={`block text-xs font-body font-semibold text-deep-navy/70 uppercase tracking-wider mb-2 ${language === 'ur' ? 'font-urdu' : ''}`}>
+                      {language === 'en' ? 'Email Address' : 'ای میل ایڈریس'}
+                    </label>
+                    <input
+                      type="email"
+                      value={user.email}
+                      readOnly
+                      className="w-full px-4 py-3 bg-cream border border-light-gray/60 rounded-lg text-deep-navy font-body text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-xs font-body font-semibold text-deep-navy/70 uppercase tracking-wider mb-2 ${language === 'ur' ? 'font-urdu' : ''}`}>
+                      {language === 'en' ? 'Username' : 'صارف نام'}
+                    </label>
+                    <input
+                      type="text"
+                      value={user.username}
+                      readOnly
+                      className="w-full px-4 py-3 bg-cream border border-light-gray/60 rounded-lg text-deep-navy font-body text-sm"
+                    />
+                  </div>
                 </div>
-                <span className={`text-xs font-body text-deep-navy/40 whitespace-nowrap ${language === 'ur' ? 'font-urdu' : ''}`}>
-                  {activity.date}
-                </span>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className={`block text-xs font-body font-semibold text-deep-navy/70 uppercase tracking-wider mb-2 ${language === 'ur' ? 'font-urdu' : ''}`}>
+                      {language === 'en' ? 'Role' : 'کردار'}
+                    </label>
+                    <input
+                      type="text"
+                      value={user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                      readOnly
+                      className="w-full px-4 py-3 bg-cream border border-light-gray/60 rounded-lg text-deep-navy font-body text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-xs font-body font-semibold text-deep-navy/70 uppercase tracking-wider mb-2 ${language === 'ur' ? 'font-urdu' : ''}`}>
+                      {language === 'en' ? 'Member Since' : 'رکن ہونے کے بعد سے'}
+                    </label>
+                    <input
+                      type="text"
+                      value={formatMemberDate(user.createdAt)}
+                      readOnly
+                      className="w-full px-4 py-3 bg-cream border border-light-gray/60 rounded-lg text-deep-navy font-body text-sm"
+                    />
+                  </div>
+                </div>
               </div>
-            ))}
+            </div>
+
+            {/* Logout */}
+            <div className="space-y-4">
+              <button 
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="w-full px-6 py-4 bg-white border border-museum-red/30 text-museum-red font-body font-bold rounded-xl hover:border-museum-red/60 hover:bg-museum-red/5 transition-all duration-300 focus-visible:outline-2 focus-visible:outline-museum-red focus-visible:outline-offset-2 flex items-center justify-center gap-2 min-h-[48px] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <LogOut className="h-5 w-5" />
+                {isLoggingOut 
+                  ? (language === 'en' ? 'Signing out...' : 'سائن آؤٹ ہو رہے ہیں...')
+                  : (language === 'en' ? 'Sign Out' : 'سائن آؤٹ')
+                }
+              </button>
+            </div>
           </div>
         )}
       </div>

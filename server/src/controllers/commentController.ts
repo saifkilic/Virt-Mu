@@ -3,9 +3,11 @@ import asyncHandler from 'express-async-handler';
 import { Request, Response } from 'express';
 import { Comment } from '../models/Comment';
 import { Artifact } from '../models/Artifact';
+import { User } from '../models/User';
 import mongoose from 'mongoose';
 import { sendResponse as sendSuccess, sendError } from '../utils/response';
 import { AuthRequest } from '../middlewares/auth';
+import checkAndAwardAchievements from './achievementController';
 
 // Helper to recompute average rating and count for an artifact
 const recomputeArtifactRating = async (artifactId: string) => {
@@ -41,16 +43,34 @@ export const createComment = asyncHandler(async (req: AuthRequest, res: Response
   if (!artifactId || !museumCode || !text) {
     return sendError(res, 'artifactId, museumCode and text are required', 400);
   }
+
+  // Guard clause to ensure user is authenticated
+  if (!req.user?.id) {
+    return sendError(res, 'Not authorized', 401);
+  }
+  
   const comment = await Comment.create({
-    userId: req.user?.id,
+    userId: req.user.id,
     artifactId,
     museumCode,
     rating,
     text,
     isApproved: true,
   });
+
+  // Update user's comment count
+  const user = await User.findById(req.user.id);
+  if (user) {
+    user.stats.commentsCount = (user.stats.commentsCount || 0) + 1;
+    await user.save();
+
+    // Check and award achievements
+    await checkAndAwardAchievements(req.user.id, 'commentsCount');
+  }
+
   // Update artifact rating stats
   if (rating) await recomputeArtifactRating(artifactId);
+  
   sendSuccess(res, comment, 'Comment created', 201);
 });
 
@@ -92,7 +112,12 @@ export const getComment = asyncHandler(async (req: Request, res: Response) => {
 export const updateComment = asyncHandler(async (req: AuthRequest, res: Response) => {
   const comment = await Comment.findById(req.params.id);
   if (!comment) return sendError(res, 'Comment not found', 404);
-  if (comment.userId.toString() !== req.user?.id) {
+
+  if (!req.user?.id) {
+    return sendError(res, 'Not authorized', 401);
+  }
+
+  if (comment.userId.toString() !== req.user.id) {
     return sendError(res, 'Not authorized to edit this comment', 403);
   }
   const updates = req.body;
@@ -111,15 +136,31 @@ export const updateComment = asyncHandler(async (req: AuthRequest, res: Response
 export const deleteComment = asyncHandler(async (req: AuthRequest, res: Response) => {
   const comment = await Comment.findById(req.params.id);
   if (!comment) return sendError(res, 'Comment not found', 404);
-  const isAuthor = comment.userId.toString() === req.user?.id;
-  const isAdmin = req.user?.role === 'admin';
+
+  if (!req.user?.id) {
+    return sendError(res, 'Not authorized', 401);
+  }
+
+  const isAuthor = comment.userId.toString() === req.user.id;
+  const isAdmin = req.user.role === 'admin';
   if (!isAuthor && !isAdmin) {
     return sendError(res, 'Not authorized to delete this comment', 403);
   }
+  
   const artifactId = comment.artifactId.toString();
   const hadRating = !!comment.rating;
+  
+  // Decrement user's comment count (but achievements persist)
+  const user = await User.findById(comment.userId);
+  if (user) {
+    user.stats.commentsCount = Math.max(0, (user.stats.commentsCount || 0) - 1);
+    await user.save();
+  }
+  
   await comment.deleteOne();
+  
   // Recompute rating stats if the deleted comment had a rating
   if (hadRating) await recomputeArtifactRating(artifactId);
+  
   sendSuccess(res, null, 'Comment deleted');
 });

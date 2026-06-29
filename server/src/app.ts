@@ -11,6 +11,7 @@ import museumRouter from './routes/museumRouter';
 import roomRouter from './routes/roomRouter';
 import artifactRouter from './routes/artifactRouter';
 import commentRouter from './routes/commentRouter';
+import achievementRouter from "./routes/achievementRouter"
 import favoriteRouter from './routes/favoriteRouter';
 import { errorHandler } from './middlewares/error';
 
@@ -70,6 +71,7 @@ app.use('/api/rooms', roomRouter);
 app.use('/api/artifacts', artifactRouter);
 app.use('/api/comments', commentRouter);
 app.use('/api/favorites', favoriteRouter);
+app.use('/api/achievement', achievementRouter);
 
 app.get('/api/health', (req: Request, res: Response) => {
   res.status(200).json({

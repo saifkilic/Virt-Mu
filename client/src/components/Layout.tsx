@@ -1,16 +1,11 @@
-
 import React from 'react';
 import { Navbar } from './Navbar';
 import { useLanguage } from '../context/LanguageContext';
 import { UI_STRINGS } from '../context/translation';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, Outlet } from 'react-router-dom';
 import { Home, Compass, Heart, User } from 'lucide-react';
 
-interface LayoutProps {
-  children: React.ReactNode;
-}
-
-export const Layout: React.FC<LayoutProps> = ({ children }) => {
+export const Layout: React.FC = () => {
   const { language } = useLanguage();
   const t = UI_STRINGS[language];
   const location = useLocation();
@@ -29,7 +24,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       
       <main className="flex-grow w-full">
         <div className="max-w-[1440px] w-full mx-auto px-4 md:px-8 lg:px-16 py-8 md:py-12 pb-28 md:pb-12">
-          {children}
+          {/* This renders the nested route content (Dashboard, Profile, etc) */}
+          <Outlet />
         </div>
       </main>
 
@@ -196,4 +192,3 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     </div>
   );
 };
-
