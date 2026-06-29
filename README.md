@@ -177,11 +177,7 @@ Contributions are welcome! Please ensure:
 - Bilingual content is properly localized
 - Changes are tested on both desktop and mobile viewports
 
----
 
-## 📝 License
-
-[Add your license information here]
 
 ---
 
