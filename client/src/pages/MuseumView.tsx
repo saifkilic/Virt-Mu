@@ -128,7 +128,6 @@ export const MuseumView: React.FC = () => {
         const favoriteIds = await api.getUserFavorites();
         setFavorites(favoriteIds);
       } catch (err) {
-        console.error('Failed to load favorites:', err);
         // Don't show error toast - this is secondary data
       } finally {
         setFavoriteLoading(false);
@@ -169,7 +168,6 @@ export const MuseumView: React.FC = () => {
         );
       }
     } catch (err) {
-      console.error('Failed to toggle favorite:', err);
       toast.error(
         language === 'en' 
           ? 'Failed to update favorite' 
@@ -262,10 +260,18 @@ export const MuseumView: React.FC = () => {
       {artifacts.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {artifacts.map((artifact) => (
-            <button
+            <div
               key={artifact._id}
               onClick={() => handleSelectArtifact(artifact)}
-              className="group text-left bg-white rounded-2xl overflow-hidden border border-light-gray/60 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-deep-gold focus-visible:outline-offset-2"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleSelectArtifact(artifact);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              className="group text-left bg-white rounded-2xl overflow-hidden border border-light-gray/60 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-deep-gold focus-visible:outline-offset-2 cursor-pointer"
             >
               {/* Image Container */}
               <div className="relative overflow-hidden bg-gradient-to-br from-deep-navy/10 to-rich-brown/10 aspect-square">
@@ -321,7 +327,7 @@ export const MuseumView: React.FC = () => {
                   </span>
                 </div>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       ) : (
