@@ -2,15 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
-import { UI_STRINGS } from '../context/translation';
 import { api } from '../services/api';
 import type { Artifact } from '../services/api';
-import { Heart, Filter, Grid3x3, List, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { Heart, Grid3x3, List, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const Favorites: React.FC = () => {
   const { language } = useLanguage();
-  const t = UI_STRINGS[language];
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const dir = language === 'ur' ? 'rtl' : 'ltr';
@@ -161,7 +159,7 @@ export const Favorites: React.FC = () => {
               className={`px-4 py-2 rounded-lg font-body font-semibold text-sm transition-all duration-300 ${
                 selectedFilter === filter.id
                   ? 'bg-deep-gold text-white shadow-lg'
-                  : 'bg-light-gray/30 text-deep-navy hover:bg-light-gray/50'
+                  : 'bg-light-gray/60 text-deep-navy/70 hover:bg-light-gray/80'
               }`}
             >
               {filter.label}
@@ -170,14 +168,15 @@ export const Favorites: React.FC = () => {
         </div>
 
         {/* View Mode Toggle */}
-        <div className="flex items-center gap-2 bg-light-gray/30 rounded-lg p-1">
+        <div className="flex gap-2 bg-light-gray/60 p-2 rounded-lg">
           <button
             onClick={() => setViewMode('grid')}
             className={`p-2 rounded transition-all duration-300 ${
               viewMode === 'grid'
-                ? 'bg-white text-deep-navy shadow-md'
-                : 'text-deep-navy/60 hover:text-deep-navy'
+                ? 'bg-white text-deep-gold shadow-md'
+                : 'text-deep-navy/50 hover:text-deep-navy'
             }`}
+            title="Grid view"
             aria-label="Grid view"
           >
             <Grid3x3 className="h-5 w-5" />
@@ -186,9 +185,10 @@ export const Favorites: React.FC = () => {
             onClick={() => setViewMode('list')}
             className={`p-2 rounded transition-all duration-300 ${
               viewMode === 'list'
-                ? 'bg-white text-deep-navy shadow-md'
-                : 'text-deep-navy/60 hover:text-deep-navy'
+                ? 'bg-white text-deep-gold shadow-md'
+                : 'text-deep-navy/50 hover:text-deep-navy'
             }`}
+            title="List view"
             aria-label="List view"
           >
             <List className="h-5 w-5" />
@@ -196,40 +196,29 @@ export const Favorites: React.FC = () => {
         </div>
       </div>
 
-      {/* Content Area */}
+      {/* Content */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center min-h-[400px] gap-6">
-          <div className="relative">
-            <div className="absolute inset-0 bg-deep-gold/20 rounded-full blur-lg animate-pulse" />
-            <Loader2 className="relative h-12 w-12 animate-spin text-deep-gold" />
-          </div>
-          <p className={`text-lg font-display font-bold text-deep-navy ${language === 'ur' ? 'font-urdu' : ''}`}>
-            {language === 'en' ? 'Loading your favorites...' : 'آپ کی پسندیدہ چیزیں لوڈ ہو رہی ہیں...'}
-          </p>
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-deep-gold" />
         </div>
       ) : error ? (
-        <div className="flex flex-col items-center justify-center min-h-[400px] gap-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full">
-            <AlertCircle className="h-8 w-8 text-red-600" />
-          </div>
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
           <div className="text-center space-y-2">
-            <p className={`text-lg font-display font-bold text-red-600 ${language === 'ur' ? 'font-urdu' : ''}`}>
-              {language === 'en' ? 'Error Loading Favorites' : 'پسندیدہ لوڈ کرنے میں خرابی'}
-            </p>
-            <p className={`text-sm text-deep-navy/60 ${language === 'ur' ? 'font-urdu' : 'font-body'}`}>
+            <AlertCircle className="h-12 w-12 text-deep-navy/30 mx-auto" />
+            <p className={`text-lg font-display font-bold text-deep-navy ${language === 'ur' ? 'font-urdu' : ''}`}>
               {error}
             </p>
+            <button
+              onClick={loadFavorites}
+              className="text-deep-gold font-body font-semibold hover:text-deep-gold/80 transition-colors"
+            >
+              {language === 'en' ? 'Try Again' : 'دوبارہ کوشش کریں'}
+            </button>
           </div>
-          <button
-            onClick={() => loadFavorites()}
-            className="px-6 py-3 bg-deep-navy text-white font-body font-semibold rounded-lg hover:bg-deep-navy/90"
-          >
-            {language === 'en' ? 'Retry' : 'دوبارہ کوشش'}
-          </button>
         </div>
       ) : filteredItems.length === 0 ? (
-        <div className="flex flex-col items-center justify-center min-h-[400px] gap-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-light-gray rounded-full">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+          <div className="text-center space-y-4">
             <Heart className="h-8 w-8 text-deep-navy/30" />
           </div>
           <div className="text-center space-y-2">
